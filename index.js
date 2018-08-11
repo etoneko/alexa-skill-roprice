@@ -347,10 +347,10 @@ exports.handler = skillBuilder
     FaitalErrorHandler
   )
   .addRequestInterceptors(
-    DebugRequestInterceptor,
+    //DebugRequestInterceptor,
     GetPersistenceRequestInterceptor,
     ServerRegistRequestInterceptor)
-  .addResponseInterceptors(DebugResponseInterceptor)
+//.addResponseInterceptors(DebugResponseInterceptor)
   .withTableName('ROPriceSkillTable')
   .withAutoCreateTable(false)
   .lambda();
