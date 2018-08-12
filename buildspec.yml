@@ -2,6 +2,7 @@ version: 0.1
 phases:
   install:
     commands:
+      - cd ./lambda/custom
       - npm install ask-sdk
       - npm install cheerio-httpcli
       - npm install request-promise
