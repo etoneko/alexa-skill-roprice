@@ -2,10 +2,9 @@ version: 0.1
 phases:
   install:
     commands:
-      - cd ./lambda/custom
-      - npm install ask-sdk
-      - npm install cheerio-httpcli
-      - npm install request-promise
+      - npm install --prefix lambda/custom ask-sdk
+      - npm install --prefix lambda/custom cheerio-httpcli
+      - npm install --prefix lambda/custom request-promise
       - aws cloudformation package --template-file template.yaml --s3-bucket alexa-skill-roprice 
                                    --output-template-file output-template.yaml
 artifacts:
