@@ -9,3 +9,4 @@ Resources:
       Runtime: nodejs8.10
       Role: arn:aws:iam::176973848769:role/lambda_basic_execution
       Timeout: 60
+      CodeUri: ./lambda/custom
