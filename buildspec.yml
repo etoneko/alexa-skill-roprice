@@ -5,7 +5,7 @@ phases:
       - npm install ask-sdk
       - npm install cheerio-httpcli
       - npm install request-promise
-      - aws cloudformation package --template-file samTemplate.yaml --s3-bucket alexa-skill-roprice 
+      - aws cloudformation package --template-file template.yaml --s3-bucket alexa-skill-roprice 
                                    --output-template-file output-template.yaml
 artifacts:
   type: zip
