@@ -4,9 +4,9 @@ const ROTools = require('./ROTools');
 const AskUtil = require('./ask-util');
 const Alexa = require('ask-sdk');
 
-const HELP_MESSAGE = '例えば、roの取引で赤ポーションの価格を教えてと言うことで検索できます。'
-+ '初利用の場合は検索するサーバー名を伺います。'
-+ 'サーバーを変更する場合は、例えば、サーバーを変更したい、と言ってください。';
+const HELP_MESSAGE = 'サーバーと調べたいアイテム名を言うことで最近の取引価格を調べることが出来ます。'
++ 'また、アイテム名のみ発言した場合は前回と同じサーバーで調べます。'
++ 'また、サーバーを変えたい場合は、サーバーを変更したい、と言ってください。';
 
 const GetPersistenceRequestInterceptor = {
   process(handlerInput) {
@@ -34,10 +34,10 @@ const ServerRegistRequestInterceptor = {
       const request = handlerInput.requestEnvelope.request;
 
       if(request.type === 'LaunchRequest' || request.type === 'SessionEndedRequest'
-               || request.intent.slots === undefined)
+               || request.intent.slots === undefined || request.intent.slots.ServerName === undefined)
         resolve();
       const attributes = handlerInput.attributesManager.getSessionAttributes();
-      const ServerName = request.intent.slots.ServerName; 
+      const ServerName = request.intent.slots.ServerName;
 
       if(!AskUtil.isResolution(ServerName)
                 || AskUtil.getResolutionName(ServerName) === attributes.serverName
@@ -46,10 +46,10 @@ const ServerRegistRequestInterceptor = {
       } else {
         const registObj = {
           'serverId' : AskUtil.getResolutionId(ServerName),
-          'serverName' : AskUtil.getResolutionName(ServerName)  
+          'serverName' : AskUtil.getResolutionName(ServerName)
         };
+        AskUtil.callDirectiveService(handlerInput, 'サーバーを' + registObj.serverName + 'で登録します。');
         handlerInput.attributesManager.setPersistentAttributes(registObj);
-        AskUtil.callDirectiveService(handlerInput, 'サーバーを' + ServerName.resolutions.resolutionsPerAuthority[0].values[0].value.name + 'で登録します。');
         handlerInput.attributesManager.savePersistentAttributes()
           .then(() => {
             handlerInput.attributesManager.setSessionAttributes(registObj);
@@ -58,7 +58,7 @@ const ServerRegistRequestInterceptor = {
           .catch((error) => {
             reject(error);
           });
-      }   
+      }
     });
   }
 };
@@ -68,7 +68,7 @@ const DebugRequestInterceptor = {
     return new Promise((resolve) => {
       console.log('request interseptor called');
       console.log(JSON.stringify(handlerInput));
-      resolve(); 
+      resolve();
     });
   }
 };
@@ -78,7 +78,7 @@ const DebugResponseInterceptor = {
     return new Promise((resolve) => {
       console.log('response interseptor called');
       console.log(JSON.stringify(handlerInput));
-      resolve(); 
+      resolve();
     });
   }
 };
@@ -89,8 +89,8 @@ const LaunchRequestHandler = {
   },
   handle(handlerInput) {
     return handlerInput.responseBuilder
-      .speak('検索する場合は、アイテム名を教えてください。サーバーを変更したい場合はサーバーを変更したいと言ってください。')
-      .reprompt('アイテム名を教えてください。')
+      .speak('R Oのアイテム取引価格を調べます。サーバー、もしくはアイテム名を教えてください。')
+      .reprompt('サーバー、もしくはアイテム名を教えてください。')
       .getResponse();
   }
 };
@@ -105,13 +105,15 @@ const SessionEndHandler = {
     const attributes = handlerInput.attributesManager.getSessionAttributes();
     handlerInput.attributesManager.setPersistentAttributes(attributes);
     handlerInput.attributesManager.savePersistentAttributes();
-    return handlerInput.responseBuilder.getResponse();
+    return handlerInput.responseBuilder
+      .speak('R O取引価格を終了します。')
+      .getResponse();
   }
 };
 
 /*
  * サーバー、アイテムをヒアリングして価格調査
- */ 
+ */
 const ItemSearchProgressHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -144,7 +146,6 @@ const ItemSearchHandler = {
                         && request.dialogState ==='COMPLETED';
   },
   async handle(handlerInput) {
-    console.log('ItemSearchHandler in');
     const request = handlerInput.requestEnvelope.request;
     let attributes = handlerInput.attributesManager.getSessionAttributes();
 
@@ -175,38 +176,40 @@ const ItemSearchHandler = {
     }).then(result=> {
       if(!result.found) {
         response = handlerInput.responseBuilder
-          .speak('取引は現在無いみたいです。')
+          .speak('取引は現在無いみたいです。検索を続ける場合はアイテム名を教えてください。')
+          .reprompt('アイテム名を教えてください。')
           .getResponse();
         return;
       }
-      answer = '価格は、最安値が' + convertPriceUnit(result.content.min) +'ゼニー、' 
-                   + '中央値が' + convertPriceUnit(result.content.midian) +'ゼニー、' 
+      answer = '価格は、最安値が' + convertPriceUnit(result.content.min) +'ゼニー、'
+                   + '中央値が' + convertPriceUnit(result.content.median) +'ゼニー、'
                    + '最高値が' + convertPriceUnit(result.content.max) +'ゼニーです。';
 
-      let primaryText = null;
-      if (AskUtil.isSupportsDisplay(handlerInput)) {
-        console.log('display in');
-        primaryText = new Alexa.RichTextContentHelper()
-          .withPrimaryText(
-            '<font size="4">' + searchResult[1].item_name + '<br/><br/>'
-                            + '最安値：' + result.content.min + '<br/>'
-                            + '中央値：' + result.content.midian + '<br/>'
-                            + '最高値：' + result.content.max
-                            + '</font>'
-          )
-          .getTextContent();
-              
-        handlerInput.responseBuilder.addRenderTemplateDirective({
-          type: 'BodyTemplate2',
-          token: 'string',
-          backButton: 'HIDDEN',
-          title: attributes['serverName'],
-          textContent: primaryText,
-        });
-              
-      }
+      //let primaryText = null;
+      // if (AskUtil.isSupportsDisplay(handlerInput)) {
+      //   console.log('display in');
+      //   primaryText = new Alexa.RichTextContentHelper()
+      //     .withPrimaryText(
+      //       '<font size="4">' + searchResult[1].item_name + '<br/><br/>'
+      //                       + '最安値：' + result.content.min + '<br/>'
+      //                       + '中央値：' + result.content.median + '<br/>'
+      //                       + '最高値：' + result.content.max
+      //                       + '</font>'
+      //     )
+      //     .getTextContent();
+
+      //   handlerInput.responseBuilder.addRenderTemplateDirective({
+      //     type: 'BodyTemplate2',
+      //     token: 'string',
+      //     backButton: 'HIDDEN',
+      //     title: attributes['serverName'],
+      //     textContent: primaryText,
+      //   });
+
+      // }
       response = handlerInput.responseBuilder
-        .speak(answer)
+        .speak(answer + '検索を続ける場合はアイテム名を教えてください。')
+        .reprompt('アイテム名を教えてください。')
         .getResponse();
     });
 
@@ -217,7 +220,7 @@ const ItemSearchHandler = {
 
 /*
 *サーバー変更のリクエスト受信時
-*/ 
+*/
 const ServerRegistProgressHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -241,7 +244,8 @@ const ServerRegistHandler = {
   },
   handle(handlerInput) {
     return handlerInput.responseBuilder
-      .speak('登録しました。')
+      .speak('登録しました。続けて検索する場合はアイテム名を教えてください。')
+      .reprompt('アイテム名を教えてください。')
       .getResponse();
   }
 };
@@ -253,8 +257,14 @@ const FeedbackHandler = {
                     && request.intent.name === 'FeedbackIntent';
   },
   handle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    if(request.intent.slots !== undefined) {
+      console.log('FeedBack: 発話=' + request.intent.slots.ItemName.value + ', 詳細=' + JSON.stringify((request.intent.slots.ItemName)));
+    }
+
     return handlerInput.responseBuilder
-      .speak('精度が低くてごめんなさい！')
+      .speak('うまく聞き取れなくてごめんなさい！開発者に精度を上げるよう伝えておきます。他に検索したいアイテムがある場合はアイテム名を教えてください。')
+      .reprompt('アイテム名を教えてください。')
       .getResponse();
   }
 };
@@ -268,6 +278,7 @@ const HelpHandler = {
   handle(handlerInput) {
     return handlerInput.responseBuilder
       .speak(HELP_MESSAGE + 'アイテム名を教えてください。')
+      .reprompt('アイテム名を教えてください。')
       .getResponse();
   }
 };
@@ -280,8 +291,11 @@ const StopHandler = {
                         || request.intent.name === 'AMAZON.StopIntent');
   },
   handle(handlerInput) {
+    const attributes = handlerInput.attributesManager.getSessionAttributes();
+    handlerInput.attributesManager.setPersistentAttributes(attributes);
+    handlerInput.attributesManager.savePersistentAttributes();
     return handlerInput.responseBuilder
-      .speak('終了しました')
+      .speak('R O取引価格を終了します。ありがとうございました。')
       .getResponse();
   }
 };
@@ -289,14 +303,15 @@ const StopHandler = {
 /*
 *エラーハンドラー
 *アイテム名が解析できなかった時
-*/ 
+*/
 const NoItemErrorHandler = {
   canHandle(handlerInput, error) {
     return error.message === 'NoItemError';
   },
   handle(handlerInput) {
     return handlerInput.responseBuilder
-      .speak(handlerInput.requestEnvelope.request.intent.slots.ItemName.value + 'というアイテムが見つかりません。')
+      .speak(handlerInput.requestEnvelope.request.intent.slots.ItemName.value + 'というアイテムが見つかりません。検索を続ける場合はアイテム名を教えてください。')
+      .reprompt('アイテム名を教えてください。')
       .getResponse();
   }
 };
@@ -310,7 +325,8 @@ const NoServerHandler = {
     console.log('NoServerError called');
     console.log(JSON.stringify(handlerInput));
     return handlerInput.responseBuilder
-      .speak(handlerInput.requestEnvelope.request.intent.slots.ServerName.value + 'というサーバーが見つかりません。')
+      .speak(handlerInput.requestEnvelope.request.intent.slots.ServerName.value + 'というサーバーが見つかりません。サーバーを教えてください。')
+      .reprompt('サーバーを教えてください。')
       .getResponse();
   }
 };
@@ -322,9 +338,10 @@ const FaitalErrorHandler = {
   handle(handlerInput, error) {
     console.log('FaitalError called');
     console.log(JSON.stringify(handlerInput));
+    console.log(error.message);
     console.log(error.stack);
     return handlerInput.responseBuilder
-      .speak('予期せぬエラーが発生しました。')
+      .speak('予期せぬエラーが発生しました。RO取引価格を終了します。')
       .getResponse();
   }
 };

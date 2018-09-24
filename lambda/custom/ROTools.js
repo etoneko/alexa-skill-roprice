@@ -1,52 +1,70 @@
-const client = require('cheerio-httpcli');
-const rp = require('request-promise');
+const request = require('sync-request');
+const vm = require('vm');
+const AskUtil = require('./ask-util');
+const Data = require('./data');
 
-const TORIHIKI_URL = 'https://rotool.gungho.jp/torihiki/';
-const SEARCH_URL = 'https://rotool.gungho.jp/torihiki/item_candidate.php';
+const base_url = 'http://unitrix.net';
+const serverList = new Map([
+  ['1', 'sigrun'],
+  ['2','alvitr'],
+  ['3','vali'],
+  ['4','trudr'],
+  ['5','radgrid'],
+  ['6','olrun'],
+  ['7','gimle'],
+  ['8','hervor'],
+  ['9','idavoll'],
+  ['10','frigg'],
+  ['11','mimir'],
+  ['12','lif'],
+  ['13','breidablik']
+]);
 
-exports.searchItem = (word) => {
-  const search_options = {
-    method:'POST', 
-    headers : {
-      'Accept': 'application/json, text/javascript, */*; q=0.01',
-      'Accept-Language': 'ja,en-US;q=0.7,en;q=0.3',
-      'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8',
-      'Host':'rotool.gungho.jp',
-      'Referer':'https://rotool.gungho.jp/torihiki/',
-      'Connection' : 'keep-alive',
-      'Pragma' : 'no-cache',
-      'Cache-Control' : 'no-cache',
-      'X-Requested-With': 'XMLHttpRequest'
-    }, 
-    uri:SEARCH_URL, 
-    form:{item_name : word, page : '1'}
-  };
-  return rp(search_options)
-    .then((result) => {
-      return JSON.parse(result);
-    });
+const searchItemToUnitrix = (word) => {
+  return Data.Items.filter((a) => {
+    return a.n === word;
+  });
 };
+searchItemToUnitrix('赤ポーション');
+exports.searchItemToUnitrix = searchItemToUnitrix;
 
-/**
- *  
- */
-exports.getTrihikiInfo = (world, options) => {
-  return client.fetch(TORIHIKI_URL, {world : world, item : options.item_id})
-    .then((result) => {
-      if(result.$('.result_maxmin').find('.num').length==0){
-        return {
-          found : false,
-          content : null
-        }; 
-      } else {
-        return {
-          found : true,
-          content : {
-            midian : result.$('.result_maxmin').find('.num')[0].children[0].data,
-            max : result.$('.result_maxmin').find('.num')[1].children[0].data,
-            min : result.$('.result_maxmin').find('.num')[2].children[0].data
-          }
-        };
+const getPriceData = (server, itemId, gId) => {
+  const serverName = serverList.get(server);
+  const res = request('GET', `${base_url}/data/${serverName}-${gId}.js`);
+  if(res.statusCode === 200) {
+    const data = res.getBody('utf8');
+    vm.runInThisContext(data); // gSellRecordsを読み込む
+  } else {
+    throw Error('FailToAccessUnitrix');
+  }
+
+  const sellData = gSellRecords.filter((a) => {
+    return a.c === itemId;
+  });
+  console.log(sellData);
+  const priceAry = [];
+  if(sellData.length==0){
+    return {
+      result : false,
+      content : {
+        url : `${base_url}/?c=${itemId}`
       }
-    });
+    };
+  }
+
+  for(let i=0;i<sellData.length;i++) {
+    priceAry.push(sellData[i].p);
+  }
+
+  return {
+    result : true,
+    content : {
+      median : AskUtil.median(priceAry)|0,
+      max : AskUtil.max(priceAry)|0,
+      min : AskUtil.min(priceAry)|0,
+      url : `${base_url}/?c=${itemId}`
+    }
+  };
 };
+console.log(getPriceData('13', 18802, '68'));
+exports.getPriceData = getPriceData;
