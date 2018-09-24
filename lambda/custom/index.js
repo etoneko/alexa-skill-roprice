@@ -1,8 +1,7 @@
-/* eslint no-console:0 */
-'use strict';
 const ROTools = require('./ROTools');
 const AskUtil = require('./ask-util');
 const Alexa = require('ask-sdk');
+const MyAskCommon = require('./my-ask-common');
 
 const HELP_MESSAGE = 'サーバーと調べたいアイテム名を言うことで最近の取引価格を調べることが出来ます。'
 + 'また、アイテム名のみ発言した場合は前回と同じサーバーで調べます。'
@@ -59,26 +58,6 @@ const ServerRegistRequestInterceptor = {
             reject(error);
           });
       }
-    });
-  }
-};
-
-const DebugRequestInterceptor = {
-  process(handlerInput) {
-    return new Promise((resolve) => {
-      console.log('request interseptor called');
-      console.log(JSON.stringify(handlerInput));
-      resolve();
-    });
-  }
-};
-
-const DebugResponseInterceptor = {
-  process(handlerInput) {
-    return new Promise((resolve) => {
-      console.log('response interseptor called');
-      console.log(JSON.stringify(handlerInput));
-      resolve();
     });
   }
 };
@@ -331,21 +310,6 @@ const NoServerHandler = {
   }
 };
 
-const FaitalErrorHandler = {
-  canHandle() {
-    return true;
-  },
-  handle(handlerInput, error) {
-    console.log('FaitalError called');
-    console.log(JSON.stringify(handlerInput));
-    console.log(error.message);
-    console.log(error.stack);
-    return handlerInput.responseBuilder
-      .speak('予期せぬエラーが発生しました。RO取引価格を終了します。')
-      .getResponse();
-  }
-};
-
 const skillBuilder = Alexa.SkillBuilders.standard();
 exports.handler = skillBuilder
   .addRequestHandlers(
@@ -361,13 +325,13 @@ exports.handler = skillBuilder
   .addErrorHandlers(
     NoItemErrorHandler,
     NoServerHandler,
-    FaitalErrorHandler
+    MyAskCommon.FaitalErrorHandler
   )
   .addRequestInterceptors(
-    DebugRequestInterceptor,
+    MyAskCommon.DebugRequestInterceptor,
     GetPersistenceRequestInterceptor,
     ServerRegistRequestInterceptor)
-  .addResponseInterceptors(DebugResponseInterceptor)
+  .addResponseInterceptors(MyAskCommon.DebugResponseInterceptor)
   .withTableName('ROPriceSkillTable')
   .withAutoCreateTable(false)
   .lambda();
