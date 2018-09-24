@@ -167,12 +167,12 @@ const ItemSearchHandler = {
     let answer = '';
     let searchResult = null;
     let response = null;
-    await ROTools.searchItem(word).then(result=> {
+    await ROTools.searchItemToUnitrix(word).then(result=> {
       // 基本的にアイテムが見つからないことはあり得ない
       searchResult = result;
-      AskUtil.callDirectiveService(handlerInput, searchResult[1].item_name+'の');
+      AskUtil.callDirectiveService(handlerInput, searchResult[0].n+'の');
       //TODO:アイテム候補が複数ある場合の処理
-      return ROTools.getTrihikiInfo(attributes['serverId'], result[1]);
+      return ROTools.getPriceData(attributes['serverId'], searchResult[0].c, searchResult[0].g);
     }).then(result=> {
       if(!result.found) {
         response = handlerInput.responseBuilder
@@ -208,8 +208,8 @@ const ItemSearchHandler = {
 
       // }
       response = handlerInput.responseBuilder
-        .speak(answer + '検索を続ける場合はアイテム名を教えてください。')
-        .reprompt('アイテム名を教えてください。')
+        .speak(answer)
+        .withSimpleCard(`最安値：${result.content.min}\n中央値：${result.content.median}\n最高値：${result.content.max}`)
         .getResponse();
     });
 

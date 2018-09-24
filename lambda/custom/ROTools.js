@@ -22,10 +22,10 @@ const serverList = new Map([
 
 const searchItemToUnitrix = (word) => {
   return Data.Items.filter((a) => {
-    return a.n === word;
+    return a.n.includes(word);
   });
 };
-searchItemToUnitrix('赤ポーション');
+console.log(searchItemToUnitrix('村正'));
 exports.searchItemToUnitrix = searchItemToUnitrix;
 
 const getPriceData = (server, itemId, gId) => {
@@ -41,7 +41,6 @@ const getPriceData = (server, itemId, gId) => {
   const sellData = gSellRecords.filter((a) => {
     return a.c === itemId;
   });
-  console.log(sellData);
   const priceAry = [];
   if(sellData.length==0){
     return {
