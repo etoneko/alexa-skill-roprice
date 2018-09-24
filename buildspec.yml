@@ -3,8 +3,8 @@ phases:
   install:
     commands:
       - npm install --prefix lambda/custom ask-sdk
-      - npm install --prefix lambda/custom cheerio-httpcli
-      - npm install --prefix lambda/custom request-promise
+      - npm install --prefix lambda/custom vm
+      - npm install --prefix lambda/custom sync-request
       - aws cloudformation package --template-file template.yaml --s3-bucket alexa-skill-roprice 
                                    --output-template-file output-template.yaml
 artifacts:
